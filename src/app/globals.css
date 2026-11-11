@@ -1,13 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --font-sans: "Wanted Sans Variable", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
   --color-ink: #1c1b19;
   --color-paper: #f6f4ef;
   --color-moss: #2f5d50;
@@ -134,6 +135,17 @@
     @apply font-sans;
     scrollbar-color: #b9b4a8 transparent;
   }
+  /* 글자 규칙: 제목은 줄 길이를 고르게, 본문은 마지막 줄에 한 단어만 남지 않게 */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    letter-spacing: -0.02em;
+  }
+  p,
+  li {
+    text-wrap: pretty;
+  }
   ::selection {
     background: color-mix(in oklab, var(--color-moss) 28%, white);
   }
@@ -146,15 +158,3 @@
   }
 }
 
-/* 조합 카드가 나타날 때 한 번만, 빠르게 감속한다. */
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-}
-@media (prefers-reduced-motion: no-preference) {
-  .rise {
-    animation: rise 480ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
-  }
-}

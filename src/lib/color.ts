@@ -1,6 +1,4 @@
 export type Hsl = { h: number; s: number; l: number };
-export type Garment = { id: string; name: string; hex: string };
-export type Outfit = { top: Garment; bottom: Garment; score: number; reason: string };
 
 const HEX = /^#?([0-9a-f]{6})$/i;
 
@@ -102,12 +100,74 @@ export function scorePair(topHex: string, bottomHex: string, aesthetic = ""): { 
   return { score: Math.round(Math.max(0, Math.min(100, score))), reason };
 }
 
-export function recommend(tops: Garment[], bottoms: Garment[], aesthetic = "", count = 3): Outfit[] {
-  const all: Outfit[] = [];
-  for (const top of tops) {
-    for (const bottom of bottoms) {
-      all.push({ top, bottom, ...scorePair(top.hex, bottom.hex, aesthetic) });
-    }
+// 옷 색을 한국어 이름으로 바꾼다. 검색어와 화면 표시에 쓴다.
+// shortcut: 색상(h)·채도·명도 구간으로 나눈 대략의 이름이다, 더 세밀한 이름이 필요하면 색 이름 표로 교체.
+export function colorName(hex: string): string {
+  const { h, s, l } = hexToHsl(hex);
+  if (l < 0.12) return "블랙";
+  if (l > 0.93 && s < 0.3) return "화이트";
+  if (s < 0.12) return l > 0.75 ? "연한 회색" : l > 0.45 ? "회색" : "차콜";
+  if (h >= 20 && h <= 55 && s < 0.5) {
+    if (l > 0.86) return "아이보리";
+    if (l > 0.62) return "베이지";
+    if (l < 0.42 && s >= 0.2) return "브라운";
   }
-  return all.sort((x, y) => y.score - x.score).slice(0, count);
+  if (h >= 10 && h < 45 && l < 0.4 && s > 0.25) return "브라운";
+  if (h >= 205 && h < 250 && l < 0.3) return "네이비";
+  if (h >= 50 && h < 100 && s < 0.55 && l < 0.55) return l < 0.38 ? "올리브" : "카키";
+  if ((h < 15 || h >= 330) && l < 0.35 && s > 0.3) return "버건디";
+  const tone = l > 0.78 ? "연한 " : l < 0.3 ? "진한 " : "";
+  const hue =
+    h < 15 || h >= 345 ? "빨강"
+    : h < 40 ? "주황"
+    : h < 65 ? "노랑"
+    : h < 90 ? "연두"
+    : h < 160 ? "초록"
+    : h < 190 ? "청록"
+    : h < 215 ? (l > 0.5 ? "하늘색" : "파랑")
+    : h < 255 ? "파랑"
+    : h < 290 ? "보라"
+    : l > 0.6 ? "분홍" : "자주";
+  return tone + hue;
+}
+
+export type Feel = { score: number; reason: string; keywords: string[]; match: string; tip: string };
+
+// 상의·하의 색과 추구미로 "입으면 어떤 느낌인지"를 말로 풀어 준다.
+export function describeOutfit(topHex: string, bottomHex: string, aesthetic = ""): Feel {
+  const a = hexToHsl(topHex);
+  const b = hexToHsl(bottomHex);
+  const { score, reason } = scorePair(topHex, bottomHex, aesthetic);
+  const avgS = (a.s + b.s) / 2;
+  const avgL = (a.l + b.l) / 2;
+  const gapL = Math.abs(a.l - b.l);
+  const chromatic = [a, b].filter((c) => !isNeutral(c));
+  const warm = chromatic.filter((c) => c.h < 70 || c.h > 330).length;
+  const cool = chromatic.length - warm;
+
+  const keywords: string[] = [];
+  if (chromatic.length === 0) keywords.push("차분한", "단정한");
+  else if (avgS > 0.6) keywords.push("발랄한", "시선을 끄는");
+  else if (warm > cool) keywords.push("따뜻한", "편안한");
+  else keywords.push("시원한", "깨끗한");
+  if (gapL > 0.35) keywords.push("대비가 뚜렷한");
+  else if (gapL < 0.12) keywords.push("톤이 비슷한");
+  if (avgL < 0.3) keywords.push("묵직한");
+  else if (avgL > 0.7) keywords.push("가벼운");
+
+  const style = parseAesthetic(aesthetic);
+  const hasAesthetic = aesthetic.trim() !== "";
+  let match = hasAesthetic ? "추구미와 잘 맞아요." : "추구미를 적으면 더 맞춰 드려요.";
+  let tip = "";
+  if (hasAesthetic && style.sat < 0 && avgS > 0.5) {
+    match = "추구미보다 색이 진한 편이에요.";
+    tip = "한쪽을 무채색이나 연한 색으로 바꾸면 더 차분해져요.";
+  } else if (hasAesthetic && style.sat > 0 && avgS < 0.2) {
+    match = "추구미에 비해 무난한 편이에요.";
+    tip = "한 곳에 선명한 포인트 색을 더해 보세요.";
+  }
+  if (!tip) {
+    tip = gapL < 0.12 ? "상의와 하의의 밝기를 조금 다르게 하면 더 또렷해 보여요." : "신발이나 가방은 두 색 중 하나에 맞추면 안정적이에요.";
+  }
+  return { score, reason, keywords: keywords.slice(0, 3), match, tip };
 }

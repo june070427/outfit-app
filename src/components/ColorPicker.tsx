@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, useMotionValue, useSpring } from "motion/react";
+import { colorName } from "@/lib/color";
+import Tilt from "@/components/Tilt";
 
-const SIZE = 240;
+const SIZE = 240; // 캔버스 내부 해상도
+const SHOW = 200; // 화면에 보이는 크기(px)
 const ZOOM_PX = 11; // 확대 창이 보여 주는 원본 픽셀 수(가로세로)
 const ZOOM_OUT = 110;
+const LOUPE = 88; // 마우스를 따라다니는 확대 창 크기(px)
 
 // 옷에서 자주 보이는 색. 색상환만으로는 고르기 어려운 무채색·어스 톤을 바로 고른다.
 const BASICS = [
@@ -30,6 +35,13 @@ export default function ColorPicker({ value, onChange }: { value: string; onChan
   const zoom = useRef<HTMLCanvasElement>(null);
   const [light, setLight] = useState(50);
   const [hover, setHover] = useState<string | null>(null);
+  const [marker, setMarker] = useState<{ x: number; y: number } | null>(null);
+
+  // 확대 창은 마우스 위치를 스프링으로 따라간다.
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const lx = useSpring(mx, { stiffness: 420, damping: 34 });
+  const ly = useSpring(my, { stiffness: 420, damping: 34 });
 
   // 명도가 바뀔 때마다 색상환을 다시 그린다. 각도=색상, 중심에서의 거리=채도.
   useEffect(() => {
@@ -55,59 +67,98 @@ export default function ColorPicker({ value, onChange }: { value: string; onChan
     ctx.putImageData(img, 0, 0);
   }, [light]);
 
-  const readAt = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    const cv = wheel.current;
-    const ctx = cv?.getContext("2d", { willReadFrequently: true });
-    if (!cv || !ctx) return null;
-    const rect = cv.getBoundingClientRect();
-    // 화면에 그려진 크기와 캔버스 내부 크기가 다를 수 있어 비율로 보정한다.
-    const x = Math.floor(((e.clientX - rect.left) / rect.width) * SIZE);
-    const y = Math.floor(((e.clientY - rect.top) / rect.height) * SIZE);
-    if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return null;
-    const [r, g, b, a] = ctx.getImageData(x, y, 1, 1).data;
-    if (a === 0) return null;
-    // 확대 창: 마우스 주변 몇 픽셀을 크게 그린다.
-    const zctx = zoom.current?.getContext("2d");
-    if (zctx) {
-      zctx.imageSmoothingEnabled = false;
-      zctx.clearRect(0, 0, ZOOM_OUT, ZOOM_OUT);
-      const half = Math.floor(ZOOM_PX / 2);
-      zctx.drawImage(cv, x - half, y - half, ZOOM_PX, ZOOM_PX, 0, 0, ZOOM_OUT, ZOOM_OUT);
-    }
-    return toHex(r, g, b);
-  }, []);
+  const readAt = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      const cv = wheel.current;
+      const ctx = cv?.getContext("2d", { willReadFrequently: true });
+      if (!cv || !ctx) return null;
+      const rect = cv.getBoundingClientRect();
+      // 화면에 그려진 크기와 캔버스 내부 크기가 다를 수 있어 비율로 보정한다.
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      const x = Math.floor((px / rect.width) * SIZE);
+      const y = Math.floor((py / rect.height) * SIZE);
+      if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return null;
+      const [r, g, b, a] = ctx.getImageData(x, y, 1, 1).data;
+      if (a === 0) return null;
+      // 확대 창: 마우스 주변 몇 픽셀을 크게 그린다.
+      const zctx = zoom.current?.getContext("2d");
+      if (zctx) {
+        zctx.imageSmoothingEnabled = false;
+        zctx.clearRect(0, 0, ZOOM_OUT, ZOOM_OUT);
+        const half = Math.floor(ZOOM_PX / 2);
+        zctx.drawImage(cv, x - half, y - half, ZOOM_PX, ZOOM_PX, 0, 0, ZOOM_OUT, ZOOM_OUT);
+      }
+      // 손가락에 가리지 않게 확대 창은 포인터 위쪽에 둔다.
+      mx.set(px - LOUPE / 2);
+      my.set(py - LOUPE - 14);
+      return { hex: toHex(r, g, b), px, py };
+    },
+    [mx, my],
+  );
+
+  const shown = hover ?? value;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
-        <canvas
-          ref={wheel}
-          width={SIZE}
-          height={SIZE}
-          aria-label="색상환. 눌러서 색을 고릅니다"
-          className="size-[200px] shrink-0 cursor-crosshair touch-none rounded-full shadow-[0_2px_10px_rgba(28,27,25,.22)]"
-          onPointerMove={(e) => setHover(readAt(e))}
-          onPointerLeave={() => setHover(null)}
-          onPointerDown={(e) => {
-            const hex = readAt(e);
-            if (hex) {
-              setHover(hex);
-              onChange(hex);
-            }
-          }}
-        />
-        <div className="flex flex-col items-start gap-3">
-          <div className="relative size-24 overflow-hidden rounded-full border border-black/15 bg-black/[.04]">
-            <canvas ref={zoom} width={ZOOM_OUT} height={ZOOM_OUT} aria-hidden className="size-full" />
+        <div className="relative shrink-0" style={{ width: SHOW, height: SHOW }}>
+          <canvas
+            ref={wheel}
+            width={SIZE}
+            height={SIZE}
+            aria-label="색상환. 눌러서 색을 고릅니다"
+            className="size-full cursor-crosshair touch-none rounded-full shadow-[0_2px_10px_rgba(28,27,25,.22)]"
+            onPointerMove={(e) => setHover(readAt(e)?.hex ?? null)}
+            onPointerLeave={() => setHover(null)}
+            onPointerDown={(e) => {
+              const hit = readAt(e);
+              if (hit) {
+                setHover(hit.hex);
+                setMarker({ x: hit.px, y: hit.py });
+                onChange(hit.hex);
+              }
+            }}
+          />
+
+          {/* 고른 자리를 알려 주는 고리. 새로 고르면 그 자리로 미끄러진다. */}
+          {marker && (
+            <motion.span
+              aria-hidden
+              initial={false}
+              animate={{ x: marker.x - 10, y: marker.y - 10 }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              className="pointer-events-none absolute left-0 top-0 size-5 rounded-full border-2 border-white shadow-[0_1px_4px_rgba(0,0,0,.5)]"
+              style={{ backgroundColor: value }}
+            />
+          )}
+
+          {/* 마우스를 따라다니는 확대 창 */}
+          <motion.div
+            aria-hidden
+            style={{ x: lx, y: ly, width: LOUPE, height: LOUPE }}
+            animate={{ opacity: hover ? 1 : 0, scale: hover ? 1 : 0.85 }}
+            transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+            className="pointer-events-none absolute left-0 top-0 overflow-hidden rounded-full border-2 border-white bg-white shadow-[0_4px_14px_rgba(0,0,0,.3)]"
+          >
+            <canvas ref={zoom} width={ZOOM_OUT} height={ZOOM_OUT} className="size-full" />
             {/* 가운데 네모가 지금 읽는 한 점이다 */}
-            <span className="pointer-events-none absolute left-1/2 top-1/2 size-[9px] -translate-x-1/2 -translate-y-1/2 border border-white outline outline-1 outline-black/60" />
-          </div>
+            <span className="absolute left-1/2 top-1/2 size-[9px] -translate-x-1/2 -translate-y-1/2 border border-white outline outline-1 outline-black/60" />
+          </motion.div>
+        </div>
+
+        <div className="flex flex-col items-start gap-3">
+          <motion.span
+            aria-hidden
+            initial={false}
+            animate={{ backgroundColor: shown }}
+            transition={{ duration: 0.25 }}
+            className="size-24 rounded-full border border-black/15"
+          />
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-black/60">{hover ? "마우스를 올린 색" : "고른 색"}</span>
-            <span className="flex items-center gap-2 font-mono text-sm tabular-nums">
-              <span className="size-3.5 rounded-full border border-black/20" style={{ backgroundColor: hover ?? value }} />
-              {hover ?? value.toUpperCase()}
-            </span>
+            <span className="text-base font-semibold">{colorName(shown)}</span>
+            <span className="font-mono text-sm tabular-nums text-black/70">{shown.toUpperCase()}</span>
           </div>
         </div>
       </div>
@@ -124,21 +175,29 @@ export default function ColorPicker({ value, onChange }: { value: string; onChan
         />
       </label>
 
-      <div className="grid grid-cols-6 gap-2" role="group" aria-label="자주 쓰는 옷 색">
-        {BASICS.map(([name, hex]) => (
-          <button
-            key={hex}
-            type="button"
-            title={name}
-            aria-label={`${name} ${hex}`}
-            onClick={() => onChange(hex)}
-            aria-pressed={value.toUpperCase() === hex.toUpperCase()}
-            style={{ backgroundColor: hex }}
-            className={`h-10 rounded-md border transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 ${
-              value.toUpperCase() === hex.toUpperCase() ? "border-2 border-moss ring-2 ring-moss/25" : "border-black/15"
-            }`}
-          />
-        ))}
+      <div className="grid grid-cols-6 gap-2.5" role="group" aria-label="자주 쓰는 옷 색">
+        {BASICS.map(([name, hex]) => {
+          const on = value.toUpperCase() === hex.toUpperCase();
+          return (
+            // 마우스를 올리면 카드가 커서 쪽으로 기울고 빛이 따라온다
+            <Tilt key={hex} max={14} className="rounded-lg">
+              <motion.button
+                type="button"
+                title={name}
+                aria-label={`${name} ${hex}`}
+                aria-pressed={on}
+                onClick={() => {
+                  setMarker(null); // 팔레트로 고른 색은 색상환 위에 자리가 없다
+                  onChange(hex);
+                }}
+                whileTap={{ scale: 0.94 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                style={{ backgroundColor: hex }}
+                className={`block h-16 w-full rounded-lg border ${on ? "border-2 border-moss ring-2 ring-moss/25" : "border-black/15"}`}
+              />
+            </Tilt>
+          );
+        })}
       </div>
     </div>
   );
