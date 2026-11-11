@@ -14,14 +14,14 @@ export default function Highlight({
   from?: "left" | "right";
 }) {
   return (
-    <span className="relative isolate inline-block">
+    <span className="relative isolate inline-block text-[#0b0d0c]">
       <motion.span
         aria-hidden
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
         transition={{ duration: 0.55, delay, ease: [0.16, 1, 0.3, 1] }}
         style={{ originX: from === "left" ? 0 : 1 }}
-        className="absolute -inset-x-1 bottom-[0.05em] top-[0.4em] -z-10 rounded-sm bg-[#D4F07F]"
+        className="absolute -inset-x-1 -bottom-[0.08em] -top-[0.04em] -z-10 rounded-sm bg-[#c6f24e]"
       />
       {children}
     </span>

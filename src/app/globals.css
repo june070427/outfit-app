@@ -3,16 +3,25 @@
 @import "shadcn/tailwind.css";
 @import "wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.css";
 
+/* Neo둥근모(OFL-1.1): 도트 한글체. 굵기는 한 가지라 굵게 흉내 내지 않는다. */
+@font-face {
+  font-family: "NeoDunggeunmo";
+  src: url("../../node_modules/@kfonts/neodgm/neodgm.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Wanted Sans Variable", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
-  --color-ink: #1c1b19;
-  --color-paper: #f6f4ef;
-  --color-moss: #2f5d50;
-  --color-moss-deep: #244a3f;
+  --font-sans: "NeoDunggeunmo", "Wanted Sans Variable", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  /* 어두운 유리 테마: ink는 밝은 글자색, paper는 거의 검은 바탕, moss는 라임 포인트 */
+  --color-ink: #f3f6ff;
+  --color-paper: #141a3d;
+  --color-moss: #c6f24e;
+  --color-moss-deep: #a9d93a;
   --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -127,27 +136,36 @@
     @apply border-border outline-ring/50;
   }
   body {
+    /* 너무 어둡지 않은 밤하늘: 남색 바탕에 파랑·보라·청록 빛이 번져 있다 */
     background-color: var(--color-paper);
+    background-image:
+      radial-gradient(900px 620px at 12% 0%, rgba(86, 112, 255, 0.55), transparent 62%),
+      radial-gradient(820px 600px at 92% 8%, rgba(176, 92, 240, 0.45), transparent 58%),
+      radial-gradient(1100px 760px at 50% 112%, rgba(40, 190, 210, 0.42), transparent 62%);
+    background-attachment: fixed;
     color: var(--color-ink);
     word-break: keep-all; /* 한글은 단어 단위로 줄바꿈 */
+    font-synthesis: none; /* 도트 글꼴을 억지로 굵게 만들지 않는다 */
+    position: relative;
   }
   html {
     @apply font-sans;
-    scrollbar-color: #b9b4a8 transparent;
+    scrollbar-color: #3a403a transparent;
   }
   /* 글자 규칙: 제목은 줄 길이를 고르게, 본문은 마지막 줄에 한 단어만 남지 않게 */
   h1,
   h2,
   h3 {
     text-wrap: balance;
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
   }
   p,
   li {
     text-wrap: pretty;
   }
   ::selection {
-    background: color-mix(in oklab, var(--color-moss) 28%, white);
+    background: color-mix(in oklab, var(--color-moss) 45%, transparent);
+    color: #fff;
   }
   ::placeholder {
     color: color-mix(in oklab, var(--color-ink) 55%, transparent);

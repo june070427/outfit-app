@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { colorName, describeOutfit, hexToHsl, isNeutral, parseAesthetic, scorePair } from "./color";
+import { colorName, describeOutfit, hexToHsl, isNeutral, mixHex, parseAesthetic, scorePair } from "./color";
 import { searchLinks } from "./search";
 
 describe("hexToHsl", () => {
@@ -37,6 +37,17 @@ describe("scorePair", () => {
     const color = scorePair("#FF4DA6", "#7C3AED", "y2k").score - scorePair("#FF4DA6", "#7C3AED", "").score;
     expect(mono).toBeGreaterThan(0);
     expect(color).toBeGreaterThan(0);
+  });
+});
+
+describe("mixHex", () => {
+  it("두 색을 비율대로 섞는다", () => {
+    expect(mixHex("#000000", "#FFFFFF", 0.5)).toBe("#808080");
+    expect(mixHex("#112233", "#FFFFFF", 0)).toBe("#112233");
+    expect(mixHex("#112233", "#FFFFFF", 1)).toBe("#FFFFFF");
+  });
+  it("잘못된 색 코드는 오류를 낸다", () => {
+    expect(() => mixHex("빨강", "#FFFFFF", 0.5)).toThrow();
   });
 });
 

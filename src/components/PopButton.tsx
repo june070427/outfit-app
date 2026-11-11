@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { motion } from "motion/react";
 
 // 두꺼운 아래 그림자가 있는 버튼. 마우스를 올리면 살짝 뜨고, 누르면 그림자만큼 눌려 내려간다.
-const SHADOW = "#1b3a31";
+const SHADOW = "#5d7a1a";
 const variants = {
   rest: { y: 0, boxShadow: `0px 4px 0px 0px ${SHADOW}` },
   hover: { y: -1, boxShadow: `0px 5px 0px 0px ${SHADOW}` },
@@ -12,7 +12,7 @@ const variants = {
 };
 const spring = { type: "spring", stiffness: 650, damping: 32 } as const;
 const base =
-  "inline-flex h-12 items-center justify-center rounded-xl bg-moss px-6 text-base font-semibold text-white";
+  "inline-flex h-12 items-center justify-center rounded-xl bg-moss px-6 text-base text-black";
 
 export default function PopButton({
   children,

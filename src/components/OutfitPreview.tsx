@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { motion } from "motion/react";
 
@@ -14,7 +14,7 @@ export default function OutfitPreview({ top, bottom, label }: { top: string; bot
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0, fill: bottom }}
         transition={{ type: "spring", stiffness: 160, damping: 20, delay: 0.08 }}
-        stroke="rgba(0,0,0,.2)"
+        stroke="rgba(255,255,255,.4)"
         strokeWidth="1.5"
         strokeLinejoin="round"
       />
@@ -23,7 +23,7 @@ export default function OutfitPreview({ top, bottom, label }: { top: string; bot
         initial={{ opacity: 0, y: -18 }}
         animate={{ opacity: 1, y: 0, fill: top }}
         transition={{ type: "spring", stiffness: 160, damping: 20 }}
-        stroke="rgba(0,0,0,.2)"
+        stroke="rgba(255,255,255,.4)"
         strokeWidth="1.5"
         strokeLinejoin="round"
       />

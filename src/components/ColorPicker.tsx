@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useSpring } from "motion/react";
 import { colorName } from "@/lib/color";
-import Tilt from "@/components/Tilt";
 
 const SIZE = 240; // 캔버스 내부 해상도
 const SHOW = 200; // 화면에 보이는 크기(px)
@@ -139,7 +138,7 @@ export default function ColorPicker({ value, onChange }: { value: string; onChan
             style={{ x: lx, y: ly, width: LOUPE, height: LOUPE }}
             animate={{ opacity: hover ? 1 : 0, scale: hover ? 1 : 0.85 }}
             transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
-            className="pointer-events-none absolute left-0 top-0 overflow-hidden rounded-full border-2 border-white bg-white shadow-[0_4px_14px_rgba(0,0,0,.3)]"
+            className="pointer-events-none absolute left-0 top-0 overflow-hidden rounded-full border-2 border-white bg-ink/[0.07] shadow-[0_4px_14px_rgba(0,0,0,.3)]"
           >
             <canvas ref={zoom} width={ZOOM_OUT} height={ZOOM_OUT} className="size-full" />
             {/* 가운데 네모가 지금 읽는 한 점이다 */}
@@ -153,18 +152,18 @@ export default function ColorPicker({ value, onChange }: { value: string; onChan
             initial={false}
             animate={{ backgroundColor: shown }}
             transition={{ duration: 0.25 }}
-            className="size-24 rounded-full border border-black/15"
+            className="size-24 rounded-full border border-ink/15"
           />
           <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-black/60">{hover ? "마우스를 올린 색" : "고른 색"}</span>
+            <span className="text-xs text-ink/60">{hover ? "마우스를 올린 색" : "고른 색"}</span>
             <span className="text-base font-semibold">{colorName(shown)}</span>
-            <span className="font-mono text-sm tabular-nums text-black/70">{shown.toUpperCase()}</span>
+            <span className="font-mono text-sm tabular-nums text-ink/70">{shown.toUpperCase()}</span>
           </div>
         </div>
       </div>
 
       <label className="flex items-center gap-3 text-sm">
-        <span className="w-10 shrink-0 text-black/65">밝기</span>
+        <span className="w-10 shrink-0 text-ink/65">밝기</span>
         <input
           type="range"
           min={8}
@@ -175,30 +174,102 @@ export default function ColorPicker({ value, onChange }: { value: string; onChan
         />
       </label>
 
-      <div className="grid grid-cols-6 gap-2.5" role="group" aria-label="자주 쓰는 옷 색">
-        {BASICS.map(([name, hex]) => {
-          const on = value.toUpperCase() === hex.toUpperCase();
-          return (
-            // 마우스를 올리면 카드가 커서 쪽으로 기울고 빛이 따라온다
-            <Tilt key={hex} max={14} className="rounded-lg">
-              <motion.button
-                type="button"
-                title={name}
-                aria-label={`${name} ${hex}`}
-                aria-pressed={on}
-                onClick={() => {
-                  setMarker(null); // 팔레트로 고른 색은 색상환 위에 자리가 없다
-                  onChange(hex);
-                }}
-                whileTap={{ scale: 0.94 }}
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                style={{ backgroundColor: hex }}
-                className={`block h-16 w-full rounded-lg border ${on ? "border-2 border-moss ring-2 ring-moss/25" : "border-black/15"}`}
-              />
-            </Tilt>
-          );
-        })}
-      </div>
+      <Swatches
+        value={value}
+        onPick={(hex) => {
+          setMarker(null); // 팔레트로 고른 색은 색상환 위에 자리가 없다
+          onChange(hex);
+        }}
+        onHover={setHover}
+      />
+    </div>
+  );
+}
+
+// 색 칸: 마우스(손가락)가 가까울수록 커지고, 커서 쪽으로 기울며, 빛이 따라온다.
+function Swatches({ value, onPick, onHover }: { value: string; onPick: (hex: string) => void; onHover: (hex: string | null) => void }) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const cards = useRef<(HTMLButtonElement | null)[]>([]);
+  const reduce = useRef(false);
+
+  useEffect(() => {
+    reduce.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }, []);
+
+  const apply = (x: number | null, y: number | null) => {
+    const w = wrap.current?.getBoundingClientRect();
+    if (!w) return;
+    let nearest = -1;
+    let nearestD = Infinity;
+    cards.current.forEach((el, i) => {
+      if (!el) return;
+      if (x === null || y === null || reduce.current) {
+        el.style.transform = "";
+        el.style.zIndex = "";
+        el.style.setProperty("--f", "0");
+        return;
+      }
+      // 확대된 모양이 아니라 원래 자리를 기준으로 거리를 잰다
+      const cx = w.left + el.offsetLeft + el.offsetWidth / 2;
+      const cy = w.top + el.offsetTop + el.offsetHeight / 2;
+      const dx = x - cx;
+      const dy = y - cy;
+      const d = Math.hypot(dx, dy);
+      if (d < nearestD) {
+        nearestD = d;
+        nearest = i;
+      }
+      const f = Math.exp(-(d * d) / (2 * 80 * 80));
+      const tiltY = Math.max(-1, Math.min(1, dx / el.offsetWidth)) * 16 * f;
+      const tiltX = -Math.max(-1, Math.min(1, dy / el.offsetHeight)) * 14 * f;
+      el.style.transform = `perspective(520px) translateY(${(-f * 12).toFixed(1)}px) scale(${(1 + f * 0.5).toFixed(3)}) rotateX(${tiltX.toFixed(1)}deg) rotateY(${tiltY.toFixed(1)}deg)`;
+      el.style.zIndex = String(Math.round(f * 10));
+      el.style.setProperty("--f", f.toFixed(2));
+      el.style.setProperty("--gx", `${Math.max(0, Math.min(100, ((x - (cx - el.offsetWidth / 2)) / el.offsetWidth) * 100)).toFixed(0)}%`);
+      el.style.setProperty("--gy", `${Math.max(0, Math.min(100, ((y - (cy - el.offsetHeight / 2)) / el.offsetHeight) * 100)).toFixed(0)}%`);
+    });
+    onHover(nearest >= 0 && nearestD < 70 ? BASICS[nearest][1].toUpperCase() : null);
+  };
+
+  return (
+    <div
+      ref={wrap}
+      onPointerMove={(e) => apply(e.clientX, e.clientY)}
+      onPointerLeave={() => apply(null, null)}
+      className="relative grid grid-cols-6 gap-3 py-3"
+      role="group"
+      aria-label="자주 쓰는 옷 색"
+    >
+      {BASICS.map(([name, hex], i) => {
+        const on = value.toUpperCase() === hex.toUpperCase();
+        return (
+          <button
+            key={hex}
+            ref={(el) => {
+              cards.current[i] = el;
+            }}
+            type="button"
+            title={name}
+            aria-label={`${name} ${hex}`}
+            aria-pressed={on}
+            onClick={() => onPick(hex)}
+            onFocus={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              apply(r.left + r.width / 2, r.top + r.height / 2);
+            }}
+            onBlur={() => apply(null, null)}
+            style={{ backgroundColor: hex }}
+            className={`relative h-20 w-full overflow-hidden rounded-xl border transition-shadow duration-200 sm:h-24 ${on ? "border-2 border-moss ring-2 ring-moss/30" : "border-ink/20"}`}
+          >
+            {/* 커서를 따라오는 빛 */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{ opacity: "var(--f, 0)", background: "radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,0.55), transparent 62%)", mixBlendMode: "overlay" }}
+            />
+          </button>
+        );
+      })}
     </div>
   );
 }

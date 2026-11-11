@@ -22,7 +22,7 @@ export default function Tilt({
   const glow = useSpring(0, { stiffness: 160, damping: 22 });
   const gx = useMotionValue(50);
   const gy = useMotionValue(50);
-  const light = useMotionTemplate`radial-gradient(circle at ${gx}% ${gy}%, rgba(255,255,255,0.75), rgba(255,255,255,0) 58%)`;
+  const light = useMotionTemplate`radial-gradient(circle at ${gx}% ${gy}%, rgba(255,255,255,0.26), rgba(255,255,255,0) 60%)`;
 
   const move = (e: PointerEvent<HTMLDivElement>) => {
     if (reduce || e.pointerType === "touch") return;

@@ -22,6 +22,19 @@ export function hexToHsl(hex: string): Hsl {
   return { h: (h * 60 + 360) % 360, s, l };
 }
 
+// 두 색을 t(0~1) 비율로 섞는다. 그라데이션 카드의 색을 만들 때 쓴다.
+export function mixHex(a: string, b: string, t: number): string {
+  const rgb = (hex: string) => {
+    const m = HEX.exec(hex.trim());
+    if (!m) throw new Error(`잘못된 색 코드: ${hex}`);
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+  const A = rgb(a);
+  const B = rgb(b);
+  return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
 // 검정·흰색·회색 계열. 어떤 색과도 잘 어울리는 기준색으로 취급한다.
 export const isNeutral = ({ s, l }: Hsl) => s < 0.15 || l < 0.1 || l > 0.93;
 
