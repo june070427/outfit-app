@@ -17,31 +17,33 @@ export default function MeshCard({
   className = "",
   style,
   live = false,
+  vivid = false,
 }: {
   colors: string[];
   children?: ReactNode;
   className?: string;
   style?: CSSProperties;
   live?: boolean;
+  vivid?: boolean; // 면 전체가 진한 그라데이션이고 가장자리에 흰 번짐이 도는 카드
 }) {
   const reduce = useReducedMotion();
   const animate = live && !reduce;
   return (
     <div
-      className={`relative isolate overflow-hidden rounded-[2rem] border border-white/12 bg-white/[0.04] backdrop-blur-xl ${className}`}
+      className={`relative isolate overflow-hidden rounded-[2rem] border border-white/12 bg-white/[0.04] backdrop-blur-xl ${vivid ? "shadow-[inset_0_0_42px_rgba(255,255,255,0.38)]" : ""} ${className}`}
       style={style}
     >
       <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden">
         {BLOBS.map((b, i) => (
           <motion.span
             key={i}
-            className={`absolute rounded-full opacity-50 blur-[52px] ${b.cls}`}
+            className={`absolute rounded-full blur-[44px] ${vivid ? "opacity-95 scale-125" : "opacity-70"} ${b.cls}`}
             style={{ backgroundColor: colors[i % colors.length] }}
             animate={animate ? b.move : undefined}
             transition={{ duration: b.dur, repeat: Infinity, ease: "easeInOut" }}
           />
         ))}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/35" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/20" />
       </div>
       {children}
     </div>

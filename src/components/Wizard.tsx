@@ -13,6 +13,8 @@ import PopButton from "@/components/PopButton";
 import Tilt from "@/components/Tilt";
 import MeshCard from "@/components/MeshCard";
 import { colorName, describeOutfit, mixHex } from "@/lib/color";
+import Image from "next/image";
+import { AGES, GENDERS, pickLooks, type Age, type Gender, type Photo } from "@/lib/looks";
 import { PALETTES } from "@/lib/palettes";
 import { searchLinks } from "@/lib/search";
 
@@ -49,17 +51,30 @@ const reveal = (i: number, reduce: boolean | null) => ({
 });
 
 // 옷 느낌 카드 한 장: 색이 번진 유리판 위에 입은 모습, 팔레트, 점수가 놓인다.
-function FeelCard({ title, colors, top, bottom, chips, note }: { title: string; colors: string[]; top: string; bottom: string; chips: string[]; note: string }) {
+function FeelCard({ title, colors, top, bottom, chips, note, photo, desc }: { title: string; colors: string[]; top: string; bottom: string; chips: string[]; note: string; photo?: Photo; desc?: string }) {
   return (
-    <MeshCard colors={colors} className="h-[25rem] ring-1 ring-white/30">
-      <div className="flex h-full flex-col justify-between p-4">
+    <MeshCard colors={colors} vivid className="h-[25rem] ring-1 ring-white/30">
+      {/* --fade: 캐러셀 바깥 카드는 내용이 사라지고 색 기둥만 남는다 */}
+      <div className="flex h-full flex-col justify-between p-4" style={{ opacity: "var(--fade, 1)" }}>
         <div className="flex items-start justify-between gap-2 text-xs">
           <span className="rounded-full bg-black/25 px-3 py-1 backdrop-blur">{title}</span>
           <span className="rounded-full bg-black/25 px-3 py-1 backdrop-blur">{note}</span>
         </div>
-        <div className="h-[15rem]">
-          <OutfitPreview top={top} bottom={bottom} label={`${title} 코디`} />
-        </div>
+        {photo ? (
+          <figure className="relative h-[15rem] overflow-hidden rounded-2xl">
+            <Image src={photo.src} alt={photo.alt} fill sizes="272px" className="object-cover" draggable={false} />
+            <figcaption className="absolute inset-x-0 bottom-0 bg-black/40 px-2 py-1 text-[10px] text-white/90">
+              <a href={photo.creditUrl} target="_blank" rel="noreferrer" className="underline">
+                {photo.credit}
+              </a>
+            </figcaption>
+          </figure>
+        ) : (
+          <div className="h-[15rem]">
+            <OutfitPreview top={top} bottom={bottom} label={`${title} 코디`} />
+          </div>
+        )}
+        {desc && <p className="text-center text-xs">{desc}</p>}
         <div className="flex justify-center gap-2" aria-hidden>
           {chips.map((c) => (
             <span key={c} className="size-5 rounded-full border border-white/60" style={{ backgroundColor: c }} />
@@ -74,12 +89,16 @@ function Result({
   top,
   bottom,
   aesthetic,
+  gender,
+  age,
   onRestart,
   onBack,
 }: {
   top: string;
   bottom: string;
   aesthetic: string;
+  gender: Gender | "";
+  age: Age | "";
   onRestart: () => void;
   onBack: () => void;
 }) {
@@ -88,6 +107,8 @@ function Result({
   const tn = colorName(top);
   const bn = colorName(bottom);
   const links = searchLinks(tn, bn, aesthetic);
+  const looks = gender || age ? pickLooks(gender, age) : [];
+  const who = [age, gender].filter(Boolean).join(" ");
 
   return (
     <div className="relative -m-2 overflow-hidden rounded-3xl p-2">
@@ -184,13 +205,47 @@ function Result({
       {/* 옷 느낌 카드: 내 조합이 가운데에 있고, 좌우로 넘기면 분위기별 코디가 옆에서 늘어나며 나타난다 */}
       <motion.section {...reveal(5, reduce)} className="mt-14 flex flex-col gap-4 pb-2" aria-labelledby="mood-title">
         <h3 id="mood-title" className="text-xl sm:text-2xl">
-          다른 분위기로 입으면
+          {looks.length ? `${who}에게 어울리는 코디` : "다른 분위기로 입으면"}
         </h3>
         <LiquidCarousel
-          label="분위기별 코디 카드"
+          key={who}
+          label={looks.length ? `${who} 코디 카드` : "분위기별 코디 카드"}
+          below={
+            looks.length
+              ? (i) => {
+                  // 0번은 내가 고른 조합, 1번부터가 성별·연령별 코디
+                  const l = looks[i - 1];
+                  const q = l ? searchLinks(colorName(l.top), colorName(l.bottom), `${who} ${l.mood}`) : links;
+                  return (
+                    <div className="mt-3 flex flex-wrap justify-center gap-2" role="group" aria-label="이 코디 사진 검색">
+                      {q.map((x) => (
+                        <PopButton key={x.name} href={x.href}>
+                          {x.name}
+                        </PopButton>
+                      ))}
+                    </div>
+                  );
+                }
+              : undefined
+          }
           items={[
             <FeelCard key="mine" title="내가 고른 조합" colors={[top, bottom, mixHex(top, "#8bb8ff", 0.4), mixHex(bottom, "#ff9ad5", 0.4)]} top={top} bottom={bottom} chips={[top, bottom]} note={`${feel.score}점`} />,
-            ...PALETTES.map((p) => (
+            ...(looks.length
+              ? looks.map((l) => (
+                  <FeelCard
+                    key={`${l.gender}${l.age}${l.mood}`}
+                    title={l.mood}
+                    colors={[l.top, l.bottom, mixHex(l.top, "#8bb8ff", 0.4), mixHex(l.bottom, "#ff9ad5", 0.4)]}
+                    top={l.top}
+                    bottom={l.bottom}
+                    chips={[l.top, l.bottom]}
+                    note={`${describeOutfit(l.top, l.bottom, l.mood).score}점`}
+                    photo={l.photo}
+                    desc={l.desc}
+                  />
+                ))
+              : []),
+            ...(looks.length ? [] : PALETTES).map((p) => (
               <FeelCard
                 key={p.mood}
                 title={p.mood}
@@ -213,6 +268,8 @@ export default function Wizard() {
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
   const [aesthetic, setAesthetic] = useState("");
+  const [gender, setGender] = useState<Gender | "">(""); // 고르지 않아도 된다. 브라우저 안에서만 쓰고 저장하지 않는다.
+  const [age, setAge] = useState<Age | "">("");
   const [top, setTop] = useState("#F5F5F2");
   const [bottom, setBottom] = useState("#1A1A1A");
   const moved = useRef(false);
@@ -338,6 +395,30 @@ export default function Wizard() {
                     </motion.button>
                   ))}
                 </div>
+                {(
+                  [
+                    ["성별", GENDERS, gender, setGender],
+                    ["연령대", AGES, age, setAge],
+                  ] as const
+                ).map(([name, opts, val, set]) => (
+                  <div key={name} className="flex flex-wrap items-center gap-2" role="group" aria-label={`${name} (선택)`}>
+                    <span className="w-14 text-sm text-ink/70">{name}</span>
+                    {opts.map((o) => (
+                      <motion.button
+                        key={o}
+                        type="button"
+                        onClick={() => (set as (v: string) => void)(val === o ? "" : o)}
+                        aria-pressed={val === o}
+                        whileTap={{ scale: 0.96 }}
+                        transition={SPRING}
+                        className={`h-11 rounded-full border px-4 text-sm ${val === o ? "border-moss bg-moss text-black" : "border-ink/20 bg-ink/[0.07]"}`}
+                      >
+                        {o}
+                      </motion.button>
+                    ))}
+                  </div>
+                ))}
+                <p className="-mt-2 text-xs text-ink/60">성별과 연령대는 고르면 맞는 코디를 보여 드리고, 저장하거나 보내지 않습니다. 안 골라도 됩니다.</p>
                 <div className="pb-1">
                   <PopButton type="submit">다음: 상의 색 고르기</PopButton>
                 </div>
@@ -371,7 +452,7 @@ export default function Wizard() {
                     이 조합은 이런 <span className="whitespace-nowrap"><Highlight>느낌</Highlight>이에요</span>
                   </>,
                 )}
-                <Result top={top} bottom={bottom} aesthetic={aesthetic} onBack={() => go(2)} onRestart={() => go(0)} />
+                <Result top={top} bottom={bottom} aesthetic={aesthetic} gender={gender} age={age} onBack={() => go(2)} onRestart={() => go(0)} />
               </>
             )}
           </motion.div>
